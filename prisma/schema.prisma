@@ -1,0 +1,443 @@
+// Aneira — Prisma schema
+// Spec: docs/superpowers/specs/2026-05-15-aneira-backend-design.md §4
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// Auth.js v5 (Prisma adapter standard models)
+// ============================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================
+// Users + addresses
+// ============================================================
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String?   @unique
+  name          String?
+  image         String?
+  role          Role      @default(CUSTOMER)
+  passwordHash  String? // only set for ADMIN
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  addresses Address[]
+  orders    Order[]
+  wishlist  WishlistItem[]
+  carts     Cart[]
+  sessions  Session[]
+  accounts  Account[]
+
+  @@index([role])
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName  String
+  phone     String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String  @default("India")
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ============================================================
+// Catalog
+// ============================================================
+
+model Collection {
+  id           String   @id @default(cuid())
+  handle       String   @unique
+  title        String
+  description  String?
+  heroImageUrl String?
+  order        Int      @default(0)
+  isPublished  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@index([isPublished, order])
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  handle           String   @unique
+  title            String
+  shortDescription String
+  longDescription  String?
+  collectionId     String
+  basePrice        Decimal  @db.Decimal(10, 2)
+  compareAtPrice   Decimal? @db.Decimal(10, 2)
+  metal            String?
+  grossWeightG     Decimal? @db.Decimal(8, 3)
+  stones           String?
+  dimensions       String?
+  hallmark         String?
+  certification    String?
+  tags             String[]
+  isPublished      Boolean  @default(false)
+  isFeatured       Boolean  @default(false)
+  inventory        Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  collection   Collection       @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  images       ProductImage[]
+  variants     ProductVariant[]
+  wishlistedBy WishlistItem[]
+  orderItems   OrderItem[]
+  cartItems    CartItem[]
+  enquiries    Enquiry[]
+
+  @@index([collectionId])
+  @@index([isPublished, isFeatured])
+  @@index([handle])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String
+  width     Int
+  height    Int
+  order     Int     @default(0)
+
+  @@index([productId, order])
+}
+
+model ProductVariant {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title         String
+  priceOverride Decimal? @db.Decimal(10, 2)
+  inventory     Int      @default(1)
+  isAvailable   Boolean  @default(true)
+
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+
+  @@index([productId])
+}
+
+// ============================================================
+// Wishlist
+// ============================================================
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+}
+
+// ============================================================
+// Cart (persisted, cookie-bound for guests)
+// ============================================================
+
+model Cart {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items CartItem[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model CartItem {
+  id            String   @id @default(cuid())
+  cartId        String
+  cart          Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId     String?
+  variant       ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  quantity      Int      @default(1)
+  priceSnapshot Decimal  @db.Decimal(10, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([cartId, productId, variantId])
+  @@index([cartId])
+}
+
+// ============================================================
+// Orders
+// ============================================================
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CRAFTING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  AWAITING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  orderNumber   String        @unique
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email         String
+  phone         String
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(AWAITING)
+
+  subtotal     Decimal @db.Decimal(10, 2)
+  shippingCost Decimal @default(0) @db.Decimal(10, 2)
+  gstRate      Decimal @default(0) @db.Decimal(5, 4)
+  gstAmount    Decimal @default(0) @db.Decimal(10, 2)
+  total        Decimal @db.Decimal(10, 2)
+  currency     String  @default("INR")
+
+  shipFullName String
+  shipPhone    String
+  shipLine1    String
+  shipLine2    String?
+  shipCity     String
+  shipState    String
+  shipPincode  String
+  shipCountry  String  @default("India")
+
+  razorpayOrderId   String? @unique
+  razorpayPaymentId String? @unique
+  razorpaySignature String?
+
+  trackingNumber String?
+  carrier        String?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  cancelledAt    DateTime?
+  refundedAt     DateTime?
+  notes          String?
+
+  confirmationEmailSent Boolean @default(false)
+  shippingEmailSent     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([email])
+}
+
+model OrderItem {
+  id               String          @id @default(cuid())
+  orderId          String
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId        String?
+  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  titleSnapshot    String
+  imageUrlSnapshot String?
+  priceSnapshot    Decimal         @db.Decimal(10, 2)
+  gstAmount        Decimal         @default(0) @db.Decimal(10, 2)
+  quantity         Int
+  lineTotal        Decimal         @db.Decimal(10, 2)
+
+  @@index([orderId])
+}
+
+// ============================================================
+// Enquiries (atelier booking, custom design, contact, product)
+// ============================================================
+
+enum EnquiryType {
+  ATELIER_BOOKING
+  CUSTOM_DESIGN
+  CONTACT
+  PRODUCT_ENQUIRY
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+model Enquiry {
+  id        String        @id @default(cuid())
+  type      EnquiryType
+  name      String
+  email     String
+  phone     String?
+  message   String?
+  metadata  Json?
+  status    EnquiryStatus @default(NEW)
+  productId String?
+  product   Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([type, status])
+  @@index([createdAt])
+}
+
+// ============================================================
+// Settings (singleton, id = 1)
+// ============================================================
+
+model Setting {
+  id              Int      @id @default(1)
+  companyName     String   @default("Aneira")
+  freeShippingMin Decimal  @default(25000) @db.Decimal(10, 2)
+  flatRate        Decimal  @default(250) @db.Decimal(10, 2)
+  gstRate         Decimal  @default(0.03) @db.Decimal(5, 4)
+  gstInclusive    Boolean  @default(false)
+  notifyEmails    String[] @default([])
+  supportPhone    String?
+  supportEmail    String?
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================================
+// OTP attempts (customer login)
+// ============================================================
+
+model OtpRequest {
+  id           String    @id @default(cuid())
+  email        String
+  codeHash     String
+  expiresAt    DateTime
+  attempts     Int       @default(0)
+  lockedUntil  DateTime?
+  consumedAt   DateTime?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// Webhook idempotency
+// ============================================================
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String
+  payloadHash String
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([processedAt])
+}
+
+// ============================================================
+// Email outbox (retry queue for transactional sends)
+// ============================================================
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  DEAD
+}
+
+model EmailOutbox {
+  id            String      @id @default(cuid())
+  to            String
+  template      String
+  payload       Json
+  status        EmailStatus @default(PENDING)
+  attempts      Int         @default(0)
+  lastError     String?
+  nextAttemptAt DateTime    @default(now())
+  sentAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([status, nextAttemptAt])
+}

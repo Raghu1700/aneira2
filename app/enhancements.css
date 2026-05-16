@@ -1,0 +1,247 @@
+/* ============================================
+   ENHANCEMENTS: animations, polish, micro-UX
+   Loaded after globals.css so rules win on ties.
+   ============================================ */
+
+html { scroll-behavior: smooth; }
+
+/* ====== SCROLL PROGRESS BAR ====== */
+.scroll-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-soft));
+  z-index: 9999;
+  width: 0;
+  transition: width 80ms linear, opacity 200ms ease;
+  pointer-events: none;
+  opacity: .85;
+  box-shadow: 0 0 8px rgba(201, 169, 97, .35);
+}
+
+/* ====== BACK TO TOP BUTTON ====== */
+.back-to-top {
+  position: fixed;
+  right: 22px;
+  bottom: 88px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--cream);
+  border: 1px solid rgba(201, 169, 97, .25);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(12px) scale(.9);
+  pointer-events: none;
+  transition: opacity .35s var(--ease), transform .35s var(--ease), background .25s, border-color .25s;
+  z-index: 96;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .18);
+}
+.back-to-top.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.back-to-top:hover {
+  background: var(--navy-deep);
+  border-color: rgba(201, 169, 97, .55);
+  transform: translateY(-2px) scale(1.04);
+}
+.back-to-top:active { transform: translateY(0) scale(.98); }
+.back-to-top svg { width: 16px; height: 16px; }
+
+@media (max-width: 768px) {
+  .back-to-top { right: 16px; bottom: 80px; width: 40px; height: 40px; }
+}
+
+/* ====== PAGE FADE-IN ====== */
+.page-fade-in {
+  animation: pageFadeIn .5s var(--ease) both;
+}
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ====== CART ICON PULSE WHEN ITEM ADDED ====== */
+@keyframes cartBumpKF {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.25) rotate(-6deg); }
+  60%  { transform: scale(.92) rotate(4deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.nav-actions button.cart-bumping svg {
+  animation: cartBumpKF .55s var(--ease);
+  transform-origin: center;
+}
+.nav-actions button.cart-bumping .icon-count {
+  animation: badgePulse .55s var(--ease);
+}
+@keyframes badgePulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.45); background: var(--gold); color: var(--navy); }
+  100% { transform: scale(1); }
+}
+
+/* ====== WISHLIST HEART POP ====== */
+@keyframes heartPop {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(.7); }
+  60%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.product-wishlist.active svg,
+.pdp-wishlist-btn.active svg {
+  animation: heartPop .45s var(--ease);
+  fill: rgba(201, 169, 97, .85);
+}
+
+/* ====== STAGGERED REVEAL FOR GRIDS ====== */
+.products-grid .product-card.reveal,
+.shop-grid .product-card.reveal,
+.related-grid .product-card.reveal {
+  transition-delay: calc(var(--stagger, 0) * 80ms);
+}
+
+/* ====== HERO PARALLAX ====== */
+.hero-bg {
+  transform: translateY(var(--parallax, 0px)) scale(1.05);
+  transition: transform 60ms linear;
+  will-change: transform;
+}
+
+/* ====== PRODUCT CARD LIFT ====== */
+.product-card {
+  transition: transform .45s var(--ease), box-shadow .45s var(--ease);
+}
+.product-card:hover {
+  transform: translateY(-4px);
+}
+.product-card:hover .product-img-a {
+  transform: scale(1.06);
+}
+.product-card .product-img-a,
+.product-card .product-img-b {
+  transition: transform .9s var(--ease), opacity .55s var(--ease);
+}
+
+/* ====== FILTER CHIP REFINEMENT ====== */
+.filter-chip {
+  position: relative;
+  transition: color .25s, background .25s, border-color .25s, transform .2s var(--ease);
+}
+.filter-chip:hover { transform: translateY(-1px); }
+.filter-chip.active {
+  background: var(--navy);
+  color: var(--cream);
+  border-color: var(--navy);
+}
+
+/* ====== BUTTON SHIMMER ON HOVER ====== */
+.btn--primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn--primary::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(250, 247, 242, .25), transparent);
+  transform: skewX(-20deg);
+  transition: left .8s var(--ease);
+  pointer-events: none;
+}
+.btn--primary:hover::after { left: 130%; }
+
+/* ====== ARROW NUDGE ON HOVER ====== */
+.btn .arrow,
+.link span,
+.col-card-cta span,
+.journal-read span {
+  display: inline-block;
+  transition: transform .35s var(--ease);
+}
+.btn:hover .arrow,
+.link:hover span,
+.col-card:hover .col-card-cta span,
+.journal-card:hover .journal-read span {
+  transform: translateX(4px);
+}
+
+/* ====== MOBILE DRAWER POLISH ====== */
+.drawer-mobile {
+  transition: transform .42s var(--ease), opacity .25s var(--ease);
+}
+.drawer-mobile-nav a {
+  transition: transform .3s var(--ease), color .25s ease;
+}
+.drawer-mobile-nav a:hover { transform: translateX(4px); }
+
+/* ====== TOAST POLISH ====== */
+.toast {
+  transition: transform .35s var(--ease), opacity .25s var(--ease);
+}
+
+/* ====== DISCOUNT MODAL POLISH ====== */
+.discount-modal {
+  transition: opacity .35s var(--ease), transform .45s var(--ease);
+}
+
+/* ====== HERO TITLE SHIMMER ====== */
+.hero-title em {
+  background: linear-gradient(120deg, var(--cream) 0%, var(--gold-soft) 45%, var(--cream) 90%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: heroShimmer 6s ease-in-out infinite;
+}
+@keyframes heroShimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+/* ====== SECTION HEADLINE EMPHASIS ANIMATION ====== */
+.section-head h2 em {
+  position: relative;
+  display: inline-block;
+}
+.section-head h2 em::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 1px;
+  background: var(--gold);
+  width: 0;
+  transition: width 1s var(--ease) .15s;
+}
+.section-head.in h2 em::after { width: 100%; }
+
+/* ====== ACCORDION SMOOTHER ====== */
+.accordion-trigger { transition: color .25s ease; }
+.accordion-content { transition: max-height .45s var(--ease); }
+
+/* ====== A11Y: respect reduced motion ====== */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress,
+  .back-to-top,
+  .page-fade-in,
+  .hero-bg,
+  .hero-title em,
+  .product-card,
+  .btn--primary::after,
+  .btn .arrow,
+  .filter-chip,
+  .drawer-mobile,
+  .toast,
+  .discount-modal,
+  .section-head h2 em::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
